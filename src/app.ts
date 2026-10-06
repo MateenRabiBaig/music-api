@@ -1,5 +1,6 @@
 import express from 'express';
 import searchRoutes from './routes/search.routes.js';
+import songRoutes from "./routes/song.routes.js";
 
 export function buildApp() {
     const app = express();
@@ -15,6 +16,7 @@ export function buildApp() {
     })
 
     app.use("/api/search", searchRoutes);
+    app.use("/api/songs", songRoutes);
 
     return app;
 }

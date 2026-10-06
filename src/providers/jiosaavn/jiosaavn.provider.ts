@@ -83,3 +83,82 @@ export async function searchJioSaavn(query: string): Promise<Song[]> {
     const songs = data.songs?.data ?? [];
     return songs.map(normalizeSong).filter((song): song is Song => song!==null)
 }
+interface JioSongDetails {
+  id?: string;
+  title?: string;
+  song?: string;
+  singers?: string;
+  primary_artists?: string;
+  album?: string | { name?: string; };
+  image?: string | Array<{ quality?: string; link?: string; }>;
+  duration?: string | number;
+  language?: string;
+  year?: string | number;
+  perma_url?: string;
+  url?: string;
+}
+interface JioSongDetailsResponse {
+  [songId: string]: JioSongDetails;
+}
+
+export async function getJioSaavnSong(songId: string): Promise<JioSongDetails | null> {
+  const url = new URL(JIOSAAVN_API);
+
+  url.search = new URLSearchParams({
+    __call: "song.getDetails",
+    cc: "in",
+    _marker: "0",
+    _format: "json",
+    pids: songId,
+  }).toString();
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(8000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`JioSaavn song details returned HTTP ${response.status}`);
+  }
+
+  const data = (await response.json()) as JioSongDetailsResponse;
+  const song = data[songId];
+
+  if (!song) {
+    return null;
+  }
+
+  const title = song.title ?? song.song;
+
+  if (!title) {
+    return null;
+  }
+
+  const album = typeof song.album === "string" ? song.album : song.album?.name ?? "";
+  const duration = Number(song.duration);
+
+  let image: string | null = null;
+
+  if (typeof song.image === "string") {
+    image = song.image;
+  }
+  else if (Array.isArray(song.image)) {
+    image = song.image.find((item) => item.quality === "500x500")?.link ?? song.image.at(-1)?.link ?? null;
+  }
+
+  return {
+    id: songId,
+    title,
+    artist: song.primary_artists ?? song.singers ?? "Unknown artist",
+    album,
+    image,
+    duration: Number.isFinite(duration) ? duration : null,
+    language: song.language ?? null,
+    year: song.year !== undefined ? String(song.year) : null,
+    providerUrl: song.perma_url ?? null,
+    playbackUrl: song.url ?? null,
+  };
+}

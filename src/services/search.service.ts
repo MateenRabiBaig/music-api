@@ -1,18 +1,23 @@
 import { searchJioSaavn } from "../providers/jiosaavn/jiosaavn.provider.js";
 import { searchGaana } from "../providers/gaana/gaana.provider.js";
 import { searchVerome } from "../providers/verome/verome.provider.js";
+import { isGoodSongMatch } from "../utils/song-matcher.js";
 
 export async function searchSong(query: string) {
   // 1. JioSaavn
   try {
     const jioResults = await searchJioSaavn(query);
 
-    if (jioResults.length > 0) {
+    const matchedResults = jioResults.filter((song) =>
+      isGoodSongMatch(query, song.title)
+    );
+
+    if (matchedResults.length > 0) {
       return {
         success: true,
         found: true,
         provider: "jiosaavn",
-        results: jioResults,
+        results: matchedResults,
       };
     }
   } catch (error) {
@@ -23,12 +28,16 @@ export async function searchSong(query: string) {
   try {
     const gaanaResults = await searchGaana(query);
 
-    if (gaanaResults.length > 0) {
+    const matchedResults = gaanaResults.filter((song) =>
+      isGoodSongMatch(query, song.title)
+    );
+
+    if (matchedResults.length > 0) {
       return {
         success: true,
         found: true,
         provider: "gaana",
-        results: gaanaResults,
+        results: matchedResults,
       };
     }
   } catch (error) {
@@ -39,19 +48,22 @@ export async function searchSong(query: string) {
   try {
     const veromeResults = await searchVerome(query);
 
-    if (veromeResults.length > 0) {
+    const matchedResults = veromeResults.filter((song) =>
+      isGoodSongMatch(query, song.title)
+    );
+
+    if (matchedResults.length > 0) {
       return {
         success: true,
         found: true,
         provider: "verome",
-        results: veromeResults,
+        results: matchedResults,
       };
     }
   } catch (error) {
     console.error("Verome search failed:", error);
   }
 
-  // Nothing found
   return {
     success: true,
     found: false,
