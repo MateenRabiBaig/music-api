@@ -101,8 +101,12 @@ interface JioSongDetailsResponse {
   [songId: string]: JioSongDetails;
 }
 
-export async function getJioSaavnSong(songId: string): Promise<JioSongDetails | null> {
-  const url = new URL(JIOSAAVN_API);
+export async function getJioSaavnSong(
+  songId: string
+): Promise<JioSaavnSongDetails | null> {
+  console.log("[JioSaavn] Getting song:", songId);
+
+  const url = new URL("https://www.jiosaavn.com/api.php");
 
   url.search = new URLSearchParams({
     __call: "song.getDetails",
@@ -112,52 +116,48 @@ export async function getJioSaavnSong(songId: string): Promise<JioSongDetails | 
     pids: songId,
   }).toString();
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0",
-      Accept: "application/json",
-    },
-    signal: AbortSignal.timeout(8000),
-  });
+  console.log("[JioSaavn] URL:", url.toString());
+
+  const response = await fetch(url);
+
+  console.log(
+    "[JioSaavn] Response:",
+    response.status,
+    response.statusText
+  );
+
+  const text = await response.text();
+
+  console.log("[JioSaavn] Raw response:", text);
 
   if (!response.ok) {
-    throw new Error(`JioSaavn song details returned HTTP ${response.status}`);
+    throw new Error(
+      `JioSaavn returned HTTP ${response.status}`
+    );
   }
 
-  const data = (await response.json()) as JioSongDetailsResponse;
-  const song = data[songId];
+  const data = JSON.parse(text);
+
+  const song = data?.[songId];
 
   if (!song) {
+    console.log("[JioSaavn] Song not found in response");
     return null;
   }
 
-  const title = song.title ?? song.song;
-
-  if (!title) {
-    return null;
-  }
-
-  const album = typeof song.album === "string" ? song.album : song.album?.name ?? "";
-  const duration = Number(song.duration);
-
-  let image: string | null = null;
-
-  if (typeof song.image === "string") {
-    image = song.image;
-  }
-  else if (Array.isArray(song.image)) {
-    image = song.image.find((item) => item.quality === "500x500")?.link ?? song.image.at(-1)?.link ?? null;
-  }
+  console.log("[JioSaavn] Song found:", song.song);
 
   return {
-    id: songId,
-    title,
-    artist: song.primary_artists ?? song.singers ?? "Unknown artist",
-    album,
-    image,
-    duration: Number.isFinite(duration) ? duration : null,
+    id: song.id,
+    title: song.song,
+    artist: song.primary_artists,
+    album: song.album,
+    image: song.image ?? null,
+    duration: song.duration
+      ? Number(song.duration)
+      : null,
     language: song.language ?? null,
-    year: song.year !== undefined ? String(song.year) : null,
+    year: song.year ?? null,
     providerUrl: song.perma_url ?? null,
     playbackUrl: song.url ?? null,
   };
